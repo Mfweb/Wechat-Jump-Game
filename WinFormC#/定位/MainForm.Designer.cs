@@ -134,10 +134,12 @@
             this.PICA.Location = new System.Drawing.Point(21, 18);
             this.PICA.Margin = new System.Windows.Forms.Padding(6);
             this.PICA.Name = "PICA";
-            this.PICA.Size = new System.Drawing.Size(640, 480);
-            this.PICA.SizeMode = System.Windows.Forms.PictureBoxSizeMode.AutoSize;
+            this.PICA.Size = new System.Drawing.Size(640, 562);
+            this.PICA.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
             this.PICA.TabIndex = 19;
             this.PICA.TabStop = false;
+            this.PICA.Click += new System.EventHandler(this.PICA_Click);
+            this.PICA.MouseDown += new System.Windows.Forms.MouseEventHandler(this.PICA_MouseDown);
             // 
             // button3
             // 
@@ -220,6 +222,8 @@
             this.pictureBox2.SizeMode = System.Windows.Forms.PictureBoxSizeMode.AutoSize;
             this.pictureBox2.TabIndex = 32;
             this.pictureBox2.TabStop = false;
+            this.pictureBox2.Click += new System.EventHandler(this.pictureBox2_Click);
+            this.pictureBox2.MouseDown += new System.Windows.Forms.MouseEventHandler(this.pictureBox2_MouseDown);
             // 
             // button4
             // 

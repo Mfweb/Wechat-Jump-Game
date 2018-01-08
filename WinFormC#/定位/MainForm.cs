@@ -29,8 +29,6 @@ namespace 定位
         private FilterInfoCollection videoDevices;
         VideoCaptureDevice videoSource;
         byte[,] GrayScale;
-
-        Bitmap find_main = null;
        
         public MainForm()
         {
@@ -91,14 +89,12 @@ namespace 定位
         }
         private void Form1_Load(object sender, EventArgs e)
         {
-            cap = new ScreenCaptureStream(new Rectangle(2000, 200, 320, 480));
+            cap = new ScreenCaptureStream(new Rectangle(2000, 200, 320, 480),10);
             cap.NewFrame += cap_NewFrame;
             Get_All_Devices();
             colorFilter.Red = new IntRange(10, 255);
             colorFilter.Green = new IntRange(10, 255);
-            colorFilter.Blue = new IntRange(10, 255);
-            find_main = Grayscale.CommonAlgorithms.BT709.Apply(new Bitmap(@"D:\find\main.png"));
-            
+            colorFilter.Blue = new IntRange(10, 255);            
         }
 
         private void loop_thread()
@@ -142,7 +138,7 @@ namespace 定位
 
         private void button3_Click(object sender, EventArgs e)
         {
-            pictureBox1.Image = pictureBox2.Image;
+            pictureBox1.Image = PICA.Image;
             for(int i= 0;i<1000;i++)
             {
                 string path = @"D:\pictures\" + i.ToString() + ".png";
@@ -166,7 +162,7 @@ namespace 定位
         int detal = 0;
 
 
-        float scale = 6.137f;//6S
+        float scale = 6f;//6S
         //float scale = 5.20843f;//4S
         private bool findColor(Color pix,Color pix2)
         {
@@ -598,27 +594,58 @@ namespace 定位
 
         }
 
+//IntRange(55, 70);
         private void pictureHandle(Bitmap temp_map2)
         {
             if (temp_map2 != null)
             {
                 //剪裁图片
                 Bitmap temp_map = temp_map2.Clone(new Rectangle(0,0, temp_map2.Width, temp_map2.Height), temp_map2.PixelFormat);
+
+                //过滤掉没用的颜色
+                int range = 10;
+                ColorFiltering filter = new ColorFiltering();
+                filter.Red   = new IntRange(61 - range, 61 + range);
+                filter.Green = new IntRange(49 - range, 49 + range);
+                filter.Blue  = new IntRange(91 - range, 91 + range);
+                filter.FillOutsideRange = true;
+                filter.ApplyInPlace(temp_map);
+
                 //temp_map2.Dispose();
                 temp_map = Grayscale.CommonAlgorithms.BT709.Apply(temp_map);//转换成灰度
-                //temp_map = new BlobsFiltering(5, 5, temp_map.Width, temp_map.Height).Apply(temp_map);//去噪点
-                ExhaustiveTemplateMatching templateMatching = new ExhaustiveTemplateMatching(0.7f);//图像查找
-                TemplateMatch[] matchings = templateMatching.ProcessImage(temp_map, find_main);
-                //转换成彩色图片
-                Bitmap bt1 = temp_map.Clone(new Rectangle(new System.Drawing.Point(0,0),temp_map.Size),PixelFormat.Format24bppRgb);
-                if (matchings.Length > 0)//找到了
+                temp_map = new BlobsFiltering(5, 5, temp_map.Width, temp_map.Height).Apply(temp_map);//去噪点
+
+
+                //查找物体
+                BlobCounter filter3 = new BlobCounter();
+                filter3.ProcessImage(temp_map);
+                Rectangle[] rects = filter3.GetObjectsRectangles();
+
+                Rectangle findRec = new Rectangle();
+                bool isfindRec = false;
+                foreach (var item in rects)
                 {
+                    if (item.Top < 100) continue;
+                    if (item.Height > 20 || item.Width > 20) continue;
+                    //if (item.Height < 20) continue;
+                    //if (item.Height < 31 || item.Height > 33) continue;
+                    //if (item.Width < 16 || item.Width > 18) continue;
+                    findRec = item;
+                    isfindRec = true;
+                    break;
+                }
+
+                Bitmap bt1 = temp_map2.Clone(new Rectangle(new System.Drawing.Point(0, 0), temp_map.Size), PixelFormat.Format24bppRgb);
+
+                if (isfindRec)//找到了
+                {
+                    //Text = findRec.Width.ToString() + " " + findRec.Height.ToString();
                     //因为只可能出现在上面  所以剪切掉下面部分不再用
                     if (temp_map2.Width > 200 && temp_map2.Height > 300)
                     {
                         try
                         {
-                            Bitmap transBT = temp_map2.Clone(new Rectangle(50,120, temp_map2.Width-100, temp_map2.Height - 100 - matchings[0].Rectangle.Top + matchings[0].Rectangle.Height), temp_map2.PixelFormat);
+                            Bitmap transBT = temp_map2.Clone(new Rectangle(50, 120, temp_map2.Width - 100, temp_map2.Height - 50 - findRec.Top + findRec.Height), temp_map2.PixelFormat);
                             System.Threading.Thread handle2 = new System.Threading.Thread(pictureHandle2);
                             handle2.IsBackground = true;
                             handle2.Start(transBT);
@@ -633,25 +660,38 @@ namespace 定位
                     //bt2 = filter2.Apply(bt2);
                     //用来画框
                     BitmapData tm = bt1.LockBits(new Rectangle(0, 0, bt1.Width, bt1.Height), ImageLockMode.ReadWrite, PixelFormat.Format24bppRgb);
-                    Drawing.Rectangle(tm, matchings[0].Rectangle,Color.Red);//画框
+                    Drawing.Rectangle(tm, findRec, Color.Red);//画框
                     bt1.UnlockBits(tm);
 
                     try
                     {
-                        main_x = matchings[0].Rectangle.X - 50 + matchings[0].Rectangle.Width/2;
-                        main_y = matchings[0].Rectangle.Y - 130 + matchings[0].Rectangle.Height;
-                        main_w = matchings[0].Rectangle.Width;
-                        main_h = matchings[0].Rectangle.Height;
-                        
-                        label4.Text = "X:" + matchings[0].Rectangle.X.ToString() + ",Y:" + matchings[0].Rectangle.Y.ToString();
+                        main_x = findRec.X - 50 + findRec.Width / 2;
+                        main_y = findRec.Y - 120 + findRec.Height;
+                        main_w = findRec.Width;
+                        main_h = findRec.Height;
+
+                        label4.Text = "X:" + findRec.X.ToString() + ",Y:" + findRec.Y.ToString();
 
                     }
                     catch (Exception ex)
                     {
                         Console.WriteLine(ex);
                     }
-                    
+
                 }
+
+
+
+
+                //ExhaustiveTemplateMatching templateMatching = new ExhaustiveTemplateMatching(0.7f);//图像查找
+                //TemplateMatch[] matchings = templateMatching.ProcessImage(temp_map, find_main);
+                ////转换成彩色图片
+                //if (matchings.Length > 0)//找到了
+                //{
+
+
+                    
+                //}
                 try
                 {
                    
@@ -825,6 +865,37 @@ namespace 定位
         {
             Width = pictureBox1.Left + pictureBox1.Width + 20;
             Height = groupBox3.Top + groupBox3.Height + 50;
+        }
+
+        private void PICA_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void pictureBox2_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void pictureBox2_MouseDown(object sender, MouseEventArgs e)
+        {
+            
+            float length = (float)Math.Sqrt((main_x - e.X) * (main_x - e.X) + (main_y - e.Y) * (main_y - e.Y));
+            textBox1.Text = ((int)(length * scale)).ToString();
+            try
+            {
+                COM.Write(textBox1.Text + "\n");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+        }
+
+        private void PICA_MouseDown(object sender, MouseEventArgs e)
+        {
+            
+            
         }
     }
 }
